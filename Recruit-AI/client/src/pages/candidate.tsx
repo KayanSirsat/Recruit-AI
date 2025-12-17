@@ -1,4 +1,5 @@
 import { useLocation } from "wouter";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,22 +7,54 @@ import Navigation from "@/components/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { User, TrendingUp, AlertCircle, CheckCircle } from "lucide-react";
 
-const mockCandidateData = {
-  name: "John Doe",
-  matchScore: 85,
-  strengths: [
-    "Excellent communication skills",
-    "Strong analytical abilities",
-  ],
-  gaps: [
-    "Limited experience in project management",
-    "Familiarity with new technologies needed",
-  ],
-  recommendedAction: "Consider for interview",
-};
-
 export default function Candidate() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const state = (location as any)?.state;
+  const [candidateData, setcandidateData] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+    useEffect(() => {
+      if (!state?.jobDescription || !state?.resume) {
+        console.warn("Missing job description or resume");
+        setLoading(false);
+        return;
+      }
+    const fetchEvaluation = async () => {
+      try {
+        const response = await fetch(
+          "https://joemama992022.app.n8n.cloud/webhook/recruit-ai/analyze",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              jobDescription: state?.jobDescription,
+              resume: state?.resume,
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        setcandidateData({
+          name: data.name,
+          matchScore: data.score,
+          strengths: data.strengths,
+          gaps: data.gaps,
+          recommendedAction: data.recommendation,
+        });
+      } catch (error) {
+        console.error("Failed to fetch candidate evaluation", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvaluation();
+  }, []);
+
+
   const { toast } = useToast();
 
   const handleBackToScreening = () => {
@@ -31,7 +64,7 @@ export default function Candidate() {
   const handleSendInvite = () => {
     toast({
       title: "Interview Invite Sent",
-      description: `An interview invitation has been sent to ${mockCandidateData.name}.`,
+      description: `An interview invitation has been sent to ${candidateData?.name}.`,
     });
   };
 
@@ -40,6 +73,12 @@ export default function Candidate() {
       <Navigation />
 
       <main className="flex-1">
+              {loading && (
+          <div className="text-center py-12 text-muted-foreground">
+            Evaluating candidate...
+          </div>
+        )}
+
         <div className="max-w-4xl mx-auto px-6 py-12 text-center">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground" data-testid="text-title">
             Candidate Evaluation
@@ -76,11 +115,11 @@ export default function Candidate() {
               <Card className="p-8 bg-card border-border" data-testid="card-match-score">
                 <CardContent className="p-0 text-center">
                   <p className="text-6xl font-bold text-foreground" data-testid="text-score-value">
-                    {mockCandidateData.matchScore}%
+                    {candidateData?.matchScore}%
                   </p>
                   <p className="text-sm text-muted-foreground mt-2 uppercase tracking-wide">Match Score</p>
                   <div className="mt-6 pt-6 border-t border-border">
-                    <h3 className="text-xl font-semibold text-foreground">{mockCandidateData.name}</h3>
+                    <h3 className="text-xl font-semibold text-foreground">{candidateData?.name}</h3>
                     <p className="text-sm text-muted-foreground mt-1">Candidate</p>
                   </div>
                 </CardContent>
@@ -97,10 +136,10 @@ export default function Candidate() {
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold text-foreground">Candidate Name</h3>
                       <p className="text-muted-foreground" data-testid="text-candidate-name">
-                        {mockCandidateData.name}
+                        {candidateData?.name}
                       </p>
                       <Badge variant="secondary" className="text-xs" data-testid="badge-match-score">
-                        Match Score: {mockCandidateData.matchScore}%
+                        Match Score: {candidateData?.matchScore}%
                       </Badge>
                     </div>
                   </div>
@@ -116,11 +155,12 @@ export default function Candidate() {
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold text-foreground">Strengths</h3>
                       <ul className="space-y-1 text-muted-foreground">
-                        {mockCandidateData.strengths.map((strength, index) => (
-                          <li key={index} data-testid={`text-strength-${index}`}>
-                            • {strength}
-                          </li>
-                        ))}
+                        {candidateData?.strengths?.map((strength: string, index: number) => (
+  <li key={index} data-testid={`text-strength-${index}`}>
+    • {strength}
+  </li>
+))}
+
                       </ul>
                     </div>
                   </div>
@@ -136,11 +176,17 @@ export default function Candidate() {
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold text-foreground">Gaps</h3>
                       <ul className="space-y-1 text-muted-foreground">
-                        {mockCandidateData.gaps.map((gap, index) => (
-                          <li key={index} data-testid={`text-gap-${index}`}>
-                            • {gap}
-                          </li>
-                        ))}
+                       {candidateData?.gaps && candidateData.gaps.length > 0 ? (
+  candidateData.gaps.map((gap: string, index: number) => (
+    <li key={index} data-testid={`text-gap-${index}`}>
+      • {gap}
+    </li>
+  ))
+) : (
+  <li>No major gaps identified</li>
+)}
+
+
                       </ul>
                     </div>
                   </div>
@@ -156,7 +202,7 @@ export default function Candidate() {
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold text-foreground">Recommended Action</h3>
                       <p className="text-muted-foreground" data-testid="text-recommended-action">
-                        {mockCandidateData.recommendedAction}
+                        {candidateData?.recommendedAction}
                       </p>
                     </div>
                   </div>
